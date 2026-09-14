@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fila de la lista: id | nombre | precio | stock | editar (como el boceto) -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/fila"
+    android:gravity="center_vertical"
+    android:minHeight="64dp"
+    android:orientation="horizontal"
+    android:paddingStart="16dp"
+    android:paddingEnd="10dp">
+
+    <TextView
+        android:id="@+id/colId"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:minWidth="20dp"
+        android:textColor="@color/negro"
+        android:textSize="15sp" />
+
+    <View style="@style/Separador" />
+
+    <TextView
+        android:id="@+id/colNombre"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:ellipsize="end"
+        android:maxLines="2"
+        android:textColor="@color/negro"
+        android:textSize="15sp" />
+
+    <View style="@style/Separador" />
+
+    <TextView
+        android:id="@+id/colPrecio"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/negro"
+        android:textSize="15sp" />
+
+    <View style="@style/Separador" />
+
+    <TextView
+        android:id="@+id/colStock"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:minWidth="24dp"
+        android:textColor="@color/negro"
+        android:textSize="15sp" />
+
+    <View style="@style/Separador" />
+
+    <ImageView
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="@drawable/boton_icono"
+        android:importantForAccessibility="no"
+        android:padding="9dp"
+        android:src="@drawable/ic_editar" />
+</LinearLayout>

@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Registrar Nuevo / Modificar Información del Producto -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <include layout="@layout/encabezado" />
+
+        <TextView android:id="@+id/txtTitulo" style="@style/Titulo" android:text="Cargar producto" />
+
+        <TextView style="@style/Etiqueta" android:text="Nombre:" />
+        <EditText
+            android:id="@+id/txtNombre"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Nombre..."
+            android:inputType="textCapSentences"
+            android:maxLength="50" />
+
+        <TextView style="@style/Etiqueta" android:text="Código de barras:" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/txtCodigo"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="Vacío = se genera solo"
+                android:inputType="text"
+                android:maxLength="50" />
+
+            <ImageButton
+                android:id="@+id/btnEscanearCodigo"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:layout_marginStart="10dp"
+                android:background="@drawable/boton_icono"
+                android:contentDescription="Escanear código"
+                android:src="@drawable/ic_camara" />
+        </LinearLayout>
+
+        <TextView style="@style/Etiqueta" android:text="Precio de ingreso ($):" />
+        <EditText
+            android:id="@+id/txtPrecioIngreso"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Precio de ingreso..."
+            android:inputType="numberDecimal" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView style="@style/Etiqueta" android:text="Ganancia (%):" />
+                <EditText
+                    android:id="@+id/txtGanancia"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Ej: 50"
+                    android:inputType="numberDecimal" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView style="@style/Etiqueta" android:text="IVA (%):" />
+                <EditText
+                    android:id="@+id/txtIva"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="numberDecimal"
+                    android:text="21" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/grupoStockInicial"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView style="@style/Etiqueta" android:text="Stock inicial:" />
+            <EditText
+                android:id="@+id/txtStockInicial"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Unidades que ingresan (0 si ninguna)"
+                android:inputType="number" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/txtStockActual"
+            style="@style/Etiqueta"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/txtPrecioVenta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:background="@drawable/fila"
+            android:gravity="center"
+            android:padding="14dp"
+            android:text="Precio de venta: -"
+            android:textColor="@color/negro"
+            android:textSize="19sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btnGuardar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="Cargar producto" />
+
+        <Button
+            android:id="@+id/btnIrIngreso"
+            style="@style/Boton.Lila"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Registrar ingreso de mercadería"
+            android:visibility="gone" />
+    </LinearLayout>
+</ScrollView>
