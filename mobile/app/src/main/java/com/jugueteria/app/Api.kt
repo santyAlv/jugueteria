@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.util.Log
 import android.widget.Toast
 import org.json.JSONArray
 import org.json.JSONObject
@@ -15,6 +16,8 @@ import java.text.NumberFormat
 import java.util.Locale
 import kotlin.concurrent.thread
 
+
+
 /** Cliente de la API REST (backend Node.js) + datos de la sesión. */
 object Api {
     private lateinit var prefs: SharedPreferences
@@ -23,9 +26,16 @@ object Api {
         if (!::prefs.isInitialized) prefs = ctx.applicationContext.getSharedPreferences("sesion", Context.MODE_PRIVATE)
     }
 
-    var servidor: String
-        get() = prefs.getString("servidor", "http://192.168.0.37:3000")!!
-        set(v) = prefs.edit().putString("servidor", v.trim().trimEnd('/')).apply()
+    /** IP y puerto de la PC donde corre la API: se configuran en ConfiguracionActivity. */
+    var ip: String
+        get() = prefs.getString("ip", "192.168.0.10")!!
+        set(v) = prefs.edit().putString("ip", v.trim()).apply()
+
+    var puerto: String
+        get() = prefs.getString("puerto", "3000")!!
+        set(v) = prefs.edit().putString("puerto", v.trim()).apply()
+
+    val servidor: String get() = "http://$ip:$puerto"
 
     val token: String? get() = prefs.getString("token", null)
     val nombreUsuario: String get() = prefs.getString("nombre", "")!!
@@ -56,6 +66,17 @@ object Api {
         } finally {
             con.disconnect()
         }
+    }
+
+    /**
+     * Verifica la IP y el puerto configurados. Lanza IOException si no hay nadie escuchando.
+     * Devuelve null si respondió la API; si no, el motivo (contestó otra cosa).
+     */
+    fun probarConexion(): String? = try {
+        if (JSONObject(pedir("GET", "/ping")).optBoolean("ok")) null
+        else "Responde algo en ese puerto, pero no es la API"
+    } catch (e: ErrorApi) {
+        "Contestó ${e.estado} en /api/ping: reiniciá el backend (node server.js)"
     }
 
     // --- Caso de Uso 1: Iniciar sesión ---
@@ -115,6 +136,7 @@ fun <T> Activity.enSegundoPlano(tarea: () -> T, siFalla: () -> Unit = {}, alTerm
             val resultado = tarea()
             runOnUiThread { if (!isFinishing) alTerminar(resultado) }
         } catch (e: Exception) {
+            Log.e("error",e.toString())
             runOnUiThread {
                 siFalla()
                 when {
@@ -125,7 +147,9 @@ fun <T> Activity.enSegundoPlano(tarea: () -> T, siFalla: () -> Unit = {}, alTerm
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
                     }
                     e is Api.ErrorApi -> aviso(e.message ?: "Error")
-                    e is IOException -> aviso("No se pudo conectar con el servidor (${Api.servidor})")
+                    e is IOException -> aviso("No se pudo conectar con el servidor:$e")
+
+                   // e is IOException -> aviso("No se pudo conectar con el servidor (${Api.servidor})")
                     else -> aviso("Error inesperado: ${e.message}")
                 }
             }

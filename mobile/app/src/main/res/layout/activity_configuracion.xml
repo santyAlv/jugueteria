@@ -4,7 +4,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <!-- Los campos scrollean; el botón queda fijo abajo (pantallas chicas) -->
+    <!-- Los campos scrollean; los botones quedan fijos abajo (pantallas chicas) -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -26,23 +26,38 @@
                 android:contentDescription="Logo Juguetería"
                 android:src="@drawable/logo" />
 
-            <TextView style="@style/Titulo" android:text="Iniciar sesión" />
+            <TextView style="@style/Titulo" android:text="Configurar servidor" />
 
-            <TextView style="@style/Etiqueta" android:text="Email:" />
+            <TextView
+                style="@style/Etiqueta"
+                android:layout_width="match_parent"
+                android:text="Cargá la IP y el puerto de la PC donde corre la API."
+                android:textColor="@color/gris"
+                android:textSize="15sp" />
+
+            <TextView style="@style/Etiqueta" android:text="IP:" />
             <EditText
-                android:id="@+id/txtEmail"
+                android:id="@+id/txtIp"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Mi Email..."
-                android:inputType="textEmailAddress" />
+                android:hint="192.168.0.10"
+                android:inputType="phone" />
 
-            <TextView style="@style/Etiqueta" android:text="Contraseña:" />
+            <TextView style="@style/Etiqueta" android:text="Puerto:" />
             <EditText
-                android:id="@+id/txtPassword"
+                android:id="@+id/txtPuerto"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Mi Contraseña..."
-                android:inputType="textPassword" />
+                android:hint="3000"
+                android:inputType="number" />
+
+            <TextView
+                android:id="@+id/txtEstado"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:textColor="@color/gris"
+                android:textSize="15sp" />
         </LinearLayout>
     </ScrollView>
 
@@ -56,15 +71,17 @@
         android:paddingBottom="16dp">
 
         <Button
-            android:id="@+id/btnIngresar"
+            android:id="@+id/btnProbar"
+            style="@style/Boton.Lila"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Iniciar sesión" />
+            android:text="Probar conexión" />
 
-        <TextView
-            android:id="@+id/btnServidor"
-            style="@style/Enlace"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginTop="4dp" />
+        <Button
+            android:id="@+id/btnContinuar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Continuar" />
     </LinearLayout>
 </LinearLayout>

@@ -19,6 +19,9 @@ const db = mysql.createPool({
 const app = express()
 app.use(express.json())
 
+// Prueba de conexión desde la app (para verificar la IP y el puerto configurados)
+app.get('/api/ping', (req, res) => res.json({ ok: true }))
+
 // ---------------------------------------------------------------------------
 // Caso de Uso 1: Iniciar sesión
 // ---------------------------------------------------------------------------
