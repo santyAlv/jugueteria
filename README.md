@@ -41,7 +41,8 @@ PC · Servidor web y API REST (Node.js + Express)  ──SQL──►  MySQL 8 (
 ```
 jugueteria/
 ├── db/
-│   ├── schema.sql           tablas + datos de prueba
+│   ├── schema.sql           tablas + datos de prueba (borra y recrea la base)
+│   ├── actualizar.sql       pasa una base de la versión anterior a esta sin borrar nada
 │   └── iniciar-mysql.bat    levanta un MySQL local sin instalar servicio
 ├── backend/
 │   ├── server.js            API REST (login, recuperar contraseña, permisos, productos)
@@ -97,7 +98,8 @@ db\iniciar-mysql.bat
 Opción B — si ya tienen un MySQL andando (Workbench, XAMPP, servicio MySQL80): abrir y ejecutar `db/schema.sql`.
 
 > `schema.sql` **borra y vuelve a crear** la base `jugueteria`. Sirve para dejarla limpia antes de la defensa.
-> Los módulos nuevos agregaron tablas y columnas (`cajas`, `acceso_roles`, `facturas`, `pagos`, `usuarios.activo`…): quien tenga la base de antes tiene que volver a ejecutarlo.
+
+Opción C — si ya tenían la base de la versión anterior (solo carga de productos) y no quieren perder lo cargado: ejecutar `db/actualizar.sql`. Agrega las tablas y columnas nuevas, no borra nada y se puede correr más de una vez.
 
 ## 2. API (backend)
 
@@ -151,7 +153,7 @@ Para modificar la web, `npm run dev` lo abre en `http://localhost:5173` y recarg
 
 ## 4. App Android
 
-1. Android Studio → **Open** → carpeta `mobile`.
+1. Android Studio → **Open** → carpeta `mobile`. Si al compilar el único error es `25.0.3`, el proyecto está usando Java 25 y Gradle 8.14 no lo soporta: en Settings → Build Tools → Gradle elegir un JDK 21.
 2. Esperar que termine el "Gradle Sync".
 3. En el celular activar **Opciones de desarrollador → Depuración USB** y conectarlo.
 4. Botón **Run ▶**.
