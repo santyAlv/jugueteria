@@ -1,12 +1,19 @@
 // API REST del Sistema de Gestión para Juguetería
-// Módulo: carga de productos / Caso de Uso 3 "Registrar Ingreso de Mercadería"
+// Módulos: inicio de sesión y permisos, carga de productos (Caso de Uso 3),
+//          panel de administración (admin.js) y caja y ventas (ventas.js).
+//          El frontend web en React está en ../web
+import { join } from 'node:path'
 import express from 'express'
 import mysql from 'mysql2/promise'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
+import nodemailer from 'nodemailer'
 import { codigoInterno } from './codigo-barras.js'
+import { rutasAdmin } from './admin.js'
+import { rutasVentas } from './ventas.js'
 
 const SECRET = process.env.JWT_SECRET || 'cambiar-este-secreto'
+const PORT = Number(process.env.PORT || 3000)
 const db = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   port: Number(process.env.DB_PORT || 3306),
@@ -18,6 +25,8 @@ const db = mysql.createPool({
 
 const app = express()
 app.use(express.json())
+// Frontend web ya compilado (npm run build en ../web): queda en http://localhost:3000
+app.use(express.static(join(import.meta.dirname, '../web/dist')))
 
 // Prueba de conexión desde la app (para verificar la IP y el puerto configurados)
 app.get('/api/ping', (req, res) => res.json({ ok: true }))
@@ -25,14 +34,23 @@ app.get('/api/ping', (req, res) => res.json({ ok: true }))
 // ---------------------------------------------------------------------------
 // Caso de Uso 1: Iniciar sesión
 // ---------------------------------------------------------------------------
+// campo: 'email' o 'id' (nunca viene del cliente). Los usuarios desactivados no existen para la API.
+// accesos: las opciones que su rol tiene habilitadas en acceso_roles.
+async function usuarioActivo(campo, valor) {
+  const [[u]] = await db.query(
+    `SELECT u.id, u.nombre_usuario, u.email, u.password_hash, u.sucursal_id, u.caja_id, r.nombre AS rol,
+            (SELECT JSON_ARRAYAGG(a.ruta_script) FROM acceso_roles a WHERE a.rol_id = u.rol_id AND a.visible = 1) AS accesos
+       FROM usuarios u JOIN roles r ON r.id = u.rol_id
+      WHERE u.${campo} = ? AND u.activo = 1`,
+    [valor]
+  )
+  if (u) u.accesos ??= []
+  return u
+}
+
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body ?? {}
-  const [[u]] = await db.query(
-    `SELECT u.id, u.nombre_usuario, u.password_hash, u.sucursal_id, r.nombre AS rol
-       FROM usuarios u JOIN roles r ON r.id = u.rol_id
-      WHERE u.email = ?`,
-    [String(email ?? '')]
-  )
+  const u = await usuarioActivo('email', String(email ?? ''))
   if (!u || !(await bcrypt.compare(String(password ?? ''), u.password_hash))) {
     return res.status(401).json({ error: 'Email o contraseña incorrectos' })
   }
@@ -40,21 +58,81 @@ app.post('/api/login', async (req, res) => {
   res.json({ token: jwt.sign(usuario, SECRET, { expiresIn: '8h' }), usuario })
 })
 
-function autenticado(req, res, next) {
+// El token solo dice quién es: el rol y el estado se leen de la base en cada pedido,
+// así un cambio de rol o una baja hecha por el administrador rige al instante.
+async function autenticado(req, res, next) {
+  let id
   try {
-    req.usuario = jwt.verify((req.headers.authorization ?? '').replace('Bearer ', ''), SECRET)
-    next()
-  } catch {
-    res.status(401).json({ error: 'Sesión vencida, volvé a iniciar sesión' })
-  }
+    id = jwt.verify((req.headers.authorization ?? '').replace('Bearer ', ''), SECRET).id
+  } catch {}
+  req.usuario = id && (await usuarioActivo('id', id))
+  if (req.usuario) return next()
+  res.status(401).json({ error: 'Sesión vencida, volvé a iniciar sesión' })
 }
 
-// ponytail: permisos fijos por rol; pasar a la tabla acceso_roles cuando haya más módulos
-const ROLES_CARGA = ['Administrador', 'Gerente', 'Deposito']
-function puedeCargar(req, res, next) {
-  if (ROLES_CARGA.includes(req.usuario.rol)) return next()
-  res.status(403).json({ error: `El rol ${req.usuario.rol} no puede cargar productos` })
+// usuarios.tieneAcceso(ruta_script): los permisos de cada rol salen de la tabla acceso_roles
+const tieneAcceso = (ruta, accion) => (req, res, next) => {
+  if (req.usuario.accesos.includes(ruta)) return next()
+  res.status(403).json({ error: `El rol ${req.usuario.rol} no puede ${accion}` })
 }
+const puedeCargar = tieneAcceso('/api/productos', 'cargar productos')
+
+// Datos del usuario y opciones habilitadas: con esto el frontend web arma sus pantallas
+app.get('/api/menu', autenticado, (req, res) => {
+  const { id, nombre_usuario, rol, sucursal_id, caja_id, accesos } = req.usuario
+  res.json({ id, nombre_usuario, rol, sucursal_id, caja_id, accesos })
+})
+
+// ---------------------------------------------------------------------------
+// Caso de Uso 1: Recuperar Contraseña (Servidor de Correo SMTP del Diagrama de Despliegue)
+// ---------------------------------------------------------------------------
+// Sin SMTP_HOST el mail no sale: se muestra en la consola del servidor (sirve para desarrollar).
+const smtp = process.env.SMTP_HOST && nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT || 587),
+  secure: process.env.SMTP_PORT === '465',
+  auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD } : undefined,
+})
+async function enviarCorreo(para, asunto, texto) {
+  if (!smtp) return console.log(`[correo sin enviar: falta SMTP_HOST] Para: ${para} · ${asunto}\n${texto}`)
+  await smtp.sendMail({ from: process.env.SMTP_FROM || 'Juguetería <no-responder@jugueteria.com>', to: para, subject: asunto, text: texto })
+}
+
+// El token se firma también con el hash actual: en cuanto se cambia la contraseña deja de servir
+const claveRecuperar = (u) => SECRET + u.password_hash
+
+// ponytail: sin límite de pedidos por IP (tampoco el login); agregar express-rate-limit antes de exponerlo a internet
+app.post('/api/recuperar', async (req, res) => {
+  const u = await usuarioActivo('email', String(req.body?.email ?? ''))
+  if (u) {
+    // La dirección del enlace sale de la configuración, nunca de lo que manda el cliente
+    const web = process.env.URL_WEB || `http://localhost:${PORT}`
+    const token = jwt.sign({ id: u.id }, claveRecuperar(u), { expiresIn: '15m' })
+    await enviarCorreo(
+      u.email,
+      'Recuperar contraseña - Juguetería',
+      `Hola ${u.nombre_usuario}:\n\nPara elegir una contraseña nueva entrá a este enlace (vale 15 minutos):\n${web}/?recuperar=${token}\n\nSi no lo pediste, ignorá este mensaje.`
+    )
+  }
+  // La misma respuesta exista o no el email, para no revelar quién está registrado
+  res.json({ mensaje: 'Si el email está registrado, te enviamos un enlace para cambiar la contraseña' })
+})
+
+app.post('/api/recuperar/confirmar', async (req, res) => {
+  const token = String(req.body?.token ?? '')
+  const password = req.body?.password
+  if (typeof password !== 'string' || password.length < 6 || password.length > 72) {
+    return res.status(400).json({ error: 'La contraseña debe tener entre 6 y 72 caracteres' })
+  }
+  const u = await usuarioActivo('id', Number(jwt.decode(token)?.id) || 0)
+  let valido = false
+  try {
+    valido = Boolean(u && jwt.verify(token, claveRecuperar(u)))
+  } catch {}
+  if (!valido) return res.status(400).json({ error: 'El enlace no es válido o ya venció: pedí uno nuevo' })
+  await db.query('UPDATE usuarios SET password_hash = ? WHERE id = ?', [await bcrypt.hash(password, 10), u.id])
+  res.json({ mensaje: 'Contraseña cambiada: ya podés iniciar sesión' })
+})
 
 // ---------------------------------------------------------------------------
 // Validación de datos (nunca confiar en lo que manda el cliente)
@@ -186,8 +264,19 @@ app.get('/api/productos/:id/movimientos', autenticado, async (req, res) => {
   res.json(rows)
 })
 
+// ---------------------------------------------------------------------------
+// Panel de administración
+// ---------------------------------------------------------------------------
+app.use('/api/admin', autenticado, tieneAcceso('/api/admin', 'usar el panel de administración'), rutasAdmin(db))
+
+// ---------------------------------------------------------------------------
+// Caja y ventas (Caso de Uso 2)
+// ---------------------------------------------------------------------------
+app.use('/api', rutasVentas({ db, enTransaccion, autenticado, tieneAcceso }))
+
 // Caso de uso "Error": todo error termina en un mensaje entendible para el usuario
 app.use((err, req, res, next) => {
+  if (err.estado) return res.status(err.estado).json({ error: err.message })
   if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'Ya existe un producto con ese código de barras' })
   if (err.code === 'ER_CHECK_CONSTRAINT_VIOLATED') return res.status(400).json({ error: 'Datos fuera de rango' })
   if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'JSON inválido' })
@@ -195,5 +284,4 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Error interno del servidor' })
 })
 
-const PORT = Number(process.env.PORT || 3000)
 app.listen(PORT, '0.0.0.0', () => console.log(`API Juguetería escuchando en http://localhost:${PORT}`))

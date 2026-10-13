@@ -1,0 +1,115 @@
+/* Paleta tomada de los bocetos (la misma de la app: mobile/app/src/main/res/values/colors.xml) */
+:root {
+  --rosa: #E3A0B1;
+  --rosa-oscuro: #C97B8F;
+  --lila: #D9C6EA;
+  --celeste: #A9C8F0;
+  --gris: #6F6F6F;
+  --negro: #111;
+  --fondo: #F3ECF8;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 130px; }
+body { margin: 0; font: 16px/1.45 Roboto, system-ui, sans-serif; color: var(--negro); background: var(--fondo); }
+h1, h2 { margin: 0; text-transform: uppercase; }
+h1 { font-size: 24px; }
+h2 { font-size: 19px; }
+p { margin: 0; }
+:focus-visible { outline: 3px solid var(--celeste); outline-offset: 2px; }
+
+/* Campos y botones */
+label { display: block; margin-top: 14px; font-size: 17px; }
+input, select {
+  width: 100%; min-height: 48px; padding: 0 18px; font: inherit; color: var(--negro);
+  background: #fff; border: 1.5px solid var(--lila); border-radius: 24px;
+}
+label input, label select { display: block; margin-top: 6px; }
+input[type=checkbox] { width: 22px; min-height: 22px; padding: 0; accent-color: var(--rosa-oscuro); }
+select:disabled, input:disabled { color: var(--gris); background: #f6f6f6; }
+
+button {
+  min-height: 48px; padding: 0 22px; font: inherit; font-weight: 700; color: #fff; cursor: pointer;
+  background: var(--rosa-oscuro); border: 3px solid var(--lila); border-radius: 14px;
+}
+button:hover { filter: brightness(.94); }
+button:disabled { opacity: .5; cursor: default; }
+button.lila { background: var(--lila); color: var(--negro); }
+button.lila[aria-pressed=true] { background: var(--rosa-oscuro); border-color: var(--rosa-oscuro); color: #fff; }
+button.chico { min-height: 38px; padding: 0 14px; font-weight: 500; }
+button.enlace { min-height: 0; padding: 6px; background: none; border: 0; color: #3F6DB0; font-weight: 400; font-style: italic; }
+button.icono { display: grid; place-items: center; width: 48px; padding: 0; font-size: 30px; line-height: 1; }
+
+.mensaje, .error { margin-top: 16px; color: #9A3B55; }
+.nota { margin-top: 12px; color: var(--gris); font-size: 15px; }
+.centro { text-align: center; padding: 40px; }
+.derecha { text-align: right; }
+.botones, .pago { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+
+/* Iniciar sesión y recuperar contraseña */
+.login { max-width: 400px; margin: 5vh auto; padding: 32px; background: #fff; border-radius: 22px; }
+.login img { display: block; width: 100%; height: 190px; object-fit: contain; }
+.login h1 { text-align: center; }
+.login button { display: block; width: 100%; margin-top: 22px; }
+.login button.enlace { margin-top: 12px; }
+
+/* Barra superior: cerrar sesión a la izquierda, logo al centro y accesos debajo */
+header {
+  position: sticky; top: 0; z-index: 1; display: grid; grid-template-columns: 48px 1fr 48px; align-items: center;
+  padding: 8px 20px 0; background: #fff; border-bottom: 5px solid var(--rosa);
+}
+header img { height: 64px; justify-self: center; }
+header nav { grid-column: 1 / -1; display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 28px; padding: 6px 0 10px; }
+header nav a, header nav button {
+  min-height: 0; padding: 0; background: none; border: 0; border-radius: 0; font-size: 17px; font-weight: 400; color: var(--negro);
+  text-decoration: underline; text-underline-offset: 5px; text-decoration-color: var(--rosa); text-decoration-thickness: 2px;
+}
+
+/* Gestiones */
+main:not(.login) { max-width: 1080px; margin: 0 auto; padding: 24px 16px 60px; }
+main > .icono { float: left; margin-right: 16px; }
+main > .icono + h1 { line-height: 48px; }
+section { margin-top: 22px; padding: 22px; background: #fff; border: 1.5px solid var(--lila); border-radius: 22px; }
+section h2 { margin-top: 4px; }
+.titulo { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; min-height: 48px; margin-bottom: 10px; }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 9px 10px; text-align: left; border-bottom: 1.5px solid var(--lila); white-space: nowrap; }
+th { font-size: 14px; color: var(--gris); font-weight: 500; }
+td:last-child { text-align: right; }
+td select { width: auto; max-width: 190px; min-height: 38px; padding: 0 12px; text-overflow: ellipsis; }
+td input[type=number] { width: 90px; min-height: 38px; padding: 0 12px; }
+td button + button { margin-left: 6px; }
+tr.inactivo td { color: var(--gris); }
+.estado { padding: 3px 12px; border-radius: 12px; background: var(--lila); font-size: 14px; font-weight: 400; text-transform: none; vertical-align: middle; }
+
+/* Ventas: "Pago" y "Detalle" desplegables */
+table.ventas td { vertical-align: top; }
+table.ventas td:last-child { text-align: left; }
+summary { cursor: pointer; }
+details div { margin-top: 4px; color: var(--gris); font-size: 15px; }
+.resumen { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 24px; margin-bottom: 12px; padding: 12px 18px; border: 1.5px solid var(--lila); border-radius: 14px; }
+.orden { display: flex; align-items: center; gap: 8px; margin: 0; }
+.orden select { width: auto; min-height: 38px; margin: 0; }
+
+/* Crear factura */
+.factura section > h2 { margin: 22px 0 6px; }
+.encontrados { display: grid; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
+.encontrados button { width: 100%; text-align: left; font-weight: 400; }
+.total { display: grid; grid-template-columns: 1fr auto; gap: 6px 24px; margin: 16px 0; padding: 14px 10px 0; border-top: 2px solid var(--negro); font-size: 18px; }
+.total > :nth-child(even) { text-align: right; }
+.pago { margin-top: 10px; }
+.pago input { width: auto; flex: 1; min-width: 180px; }
+
+/* Ventanas de alta y modificación */
+dialog { width: min(460px, calc(100vw - 32px)); padding: 26px; border: 1.5px solid var(--lila); border-radius: 22px; }
+dialog::backdrop { background: rgba(60, 40, 80, .35); }
+.dos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.acciones { display: flex; align-items: center; gap: 10px; margin-top: 24px; }
+.acciones button[type=submit], .factura .acciones button { flex: 1; }
+
+.aviso {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); max-width: calc(100vw - 32px);
+  padding: 12px 22px; background: #fff; border: 1.5px solid var(--lila); border-radius: 24px; box-shadow: 0 3px 14px rgba(0, 0, 0, .18);
+}
+.aviso.error { border-color: var(--rosa-oscuro); }

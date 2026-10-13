@@ -147,9 +147,7 @@ fun <T> Activity.enSegundoPlano(tarea: () -> T, siFalla: () -> Unit = {}, alTerm
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
                     }
                     e is Api.ErrorApi -> aviso(e.message ?: "Error")
-                    e is IOException -> aviso("No se pudo conectar con el servidor:$e")
-
-                   // e is IOException -> aviso("No se pudo conectar con el servidor (${Api.servidor})")
+                    e is IOException -> aviso("No se pudo conectar con el servidor (${Api.servidor})")
                     else -> aviso("Error inesperado: ${e.message}")
                 }
             }
