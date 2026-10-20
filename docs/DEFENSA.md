@@ -91,7 +91,7 @@ Productos → **+** → dejar el código vacío → cargar. El sistema asigna un
 
 ### Tablas usadas (DER / Clases)
 
-Carga de productos usa `sucursales`, `roles`, `acceso_roles`, `usuarios`, `productos` y `movimientos_stock`. Con los otros módulos se sumaron `cajas`, `caja_movimientos`, `facturas`, `detalle_factura`, `medios_pago`, `pagos` y `vouchers`. Los campos y tipos siguen el **Diagrama de Clases** (es el más completo). Solo falta `retiros_efectivo`.
+Carga de productos usa `sucursales`, `roles`, `acceso_roles`, `usuarios`, `productos` y `movimientos_stock`. Con los otros módulos se sumaron `cajas`, `caja_movimientos`, `facturas`, `detalle_factura`, `medios_pago`, `pagos` y `vouchers`. Los campos y tipos siguen el **Diagrama de Clases** (es el más completo). Con el módulo de caja completo se sumaron `retiros_efectivo` (el ACHIQUE) y `notas_credito`.
 
 ### Diagrama de Despliegue
 
@@ -166,10 +166,12 @@ Las que aparecieron con el panel de administración:
 Las que aparecieron con caja y ventas:
 
 16. **`detalle_factura` / `factura_detalle`**: se usó el nombre de Clases (`detalle_factura`).
-17. **Retiros de efectivo**: `retiros_efectivo` está en los dos diagramas pero ningún boceto ni caso de uso lo muestra. No se implementó; el arqueo hoy es apertura + ventas en efectivo.
-18. **Vouchers**: el diagrama no dice si un voucher se usa una vez o guarda saldo. Se implementó de un solo uso (`estado` pasa a USADO); si es mayor que la compra, el resto se pierde. Tampoco hay boceto para crearlos: se cargan por SQL.
-19. **Anular factura**: `facturas.anularFactura()` está en Clases pero no en el Caso de Uso 2 ni en los bocetos. No se implementó (el estado ANULADA existe en la tabla).
+17. **Retiros de efectivo (ACHIQUE)**: `retiros_efectivo` está en los dos diagramas pero ningún boceto lo muestra. Se implementó con fecha, monto y motivo (botón "Achique" en Mi caja) y baja el efectivo que calcula el sistema. No se puede retirar más de lo que hay.
+18. **Vouchers**: el diagrama no dice si un voucher se usa una vez o guarda saldo. Se implementó de un solo uso (`estado` pasa a USADO); si es mayor que la compra, el resto se pierde. Tampoco hay boceto para crearlos: se agregó el botón "Crear voucher" en Mi caja (ID único, número de referencia `GC-XXXXXXXX` y monto precargado). Se paga en efectivo (entra a la caja) o digital (no la toca). Los vouchers cargados cuentan como venta en efectivo o digital en el informe de cierre.
+19. **Anular factura**: `facturas.anularFactura()` está en Clases pero no en el Caso de Uso 2 ni en los bocetos. Se implementó con el botón "Anular" en la lista de ventas: la factura no se borra, pasa a ANULADA y se genera una **nota de crédito** (`notas_credito`) con el motivo. Repone el stock y deja de contar en el efectivo y en los totales. Solo se anulan ventas del turno abierto de la caja propia; un voucher usado en esa venta sigue consumido (se usa una sola vez).
 20. **Horario de la caja**: se usa para algo que el informe no define: la caja solo se puede **abrir** dentro de ese horario.
+22. **Medios de pago**: el requisito pide "pago digital (tarjeta o transferencia)"; se agregó el medio `Transferencia`. Digital = Tarjeta + Transferencia: no dan vuelto y no tocan el efectivo físico. Solo el efectivo calcula vuelto (campo "Efectivo recibido").
+23. **Cierre de caja**: el requisito permite una diferencia máxima de $3000. Se interpretó como regla de negocio: si el efectivo contado difiere más de $3000 (en más o en menos) el cierre se rechaza y hay que volver a contar. El informe (efectivo, digital y voucher vendidos, retiros, fecha y número de caja) queda guardado en `caja_movimientos` y se ve en Mi caja.
 21. **Boceto "Crear Factura"**: muestra tres medios de pago excluyentes. Como `pagos` permite varios por factura, el voucher se combina con efectivo o tarjeta cuando no alcanza.
 
 ---
@@ -264,7 +266,8 @@ Caso de Uso 2 "Realizar Venta" y los bocetos web "Vistas caja", "Ventas" y "Crea
 4. **Voucher**: tocar Voucher, escribir `REGALO-5000` y Aplicar: muestra el descuento y lo que falta cobrar. Elegir **Efectivo** y **Emitir factura**.
 5. Al volver: bajó el stock en Gestión de productos, subió el efectivo de la caja (solo la parte en efectivo) y la venta aparece en Últimas ventas.
 6. **Ver todo ›**: filtros Día / Semana / Mes, orden por total, cantidad de ventas y total. Desplegar **Pago** y **Detalle**.
-7. **Cerrar caja**: declarar un monto distinto al del sistema. Muestra lo calculado, lo declarado y el faltante o sobrante.
+7. **Achique, voucher y anulación**: retirar efectivo con motivo (baja el efectivo de la caja), crear un voucher en efectivo (sube) y anular una venta con motivo (queda ANULADA con su nota de crédito, vuelve el stock).
+7. **Cerrar caja**: declarar un monto distinto al del sistema. Con una diferencia de hasta $3.000 cierra y muestra el informe (efectivo, digital, voucher, retiros, arqueo); con más, lo rechaza.
 8. **Errores**: emitir sin medio de pago, usar otra vez el mismo voucher, pedir más unidades que el stock, abrir la caja fuera de horario.
 9. **Como administrador**: Gestión de ventas muestra las ventas de todas las cajas; Gestión de cajas muestra el estado y el monto de cada una.
 
@@ -297,7 +300,10 @@ Caso de Uso 2 "Realizar Venta" y los bocetos web "Vistas caja", "Ventas" y "Crea
 | `vouchers.validarVoucher()` | `GET /vouchers/:numero` en [ventas.js:117](../backend/ventas.js) |
 | `vouchers.aplicarAPago()` · `actualizarEstado()` · `pagos.aplicarVoucher()` | Dentro de `POST /ventas` |
 | `movimientos_stock.registrarEgreso()` | Dentro de `POST /ventas` |
-| `facturas.anularFactura()` · `cambiarEstado()` · `retiros_efectivo.*` | No implementados (ver sección 5) |
+| `facturas.anularFactura()` · `cambiarEstado()` | `POST /ventas/:id/anular` en [ventas.js](../backend/ventas.js) (nota de crédito) |
+| `retiros_efectivo.*` (ACHIQUE) | `POST /caja/retiros` y `GET /caja` |
+| Crear voucher / tarjeta de regalo | `POST /vouchers` |
+| Informe de cierre | `POST /caja/cierre` (lo devuelve) y `GET /caja/informes` |
 
 ### Decisiones técnicas (para explicar si preguntan)
 
@@ -311,7 +317,7 @@ No. El stock se descuenta con `UPDATE productos SET stock = stock - ? WHERE id =
 De la base, en el momento de emitir. La web manda solo producto y cantidad; el precio que muestra es informativo. En `detalle_factura.precio_unitario` queda el precio de ese momento, así una factura vieja no cambia si después cambia el producto.
 
 **¿Cómo se calcula el arqueo?**
-Monto del sistema = efectivo declarado en la apertura + ventas en efectivo desde esa apertura. Tarjeta y voucher no entran porque no son billetes en la caja. Diferencia = declarado − sistema (la calcula MySQL). El resultado queda en `caja_movimientos`.
+Monto del sistema = efectivo declarado en la apertura + ventas en efectivo (no anuladas) + vouchers cargados en efectivo − achiques, todo desde esa apertura. Tarjeta, transferencia y voucher no entran porque no son billetes en la caja. Si el efectivo contado difiere en más de $3000 el cierre se rechaza. Diferencia = declarado − sistema (la calcula MySQL). El resultado queda en `caja_movimientos`.
 
 **¿Por qué los totales se calculan en centavos?**
 Porque con decimales `0.1 × 3` da `0.30000000000000004`. Se multiplica por 100, se suma con enteros y se divide al final. Está probado en `backend/ventas.test.js`.

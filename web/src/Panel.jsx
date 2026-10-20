@@ -124,7 +124,7 @@ export default function Panel({ salir }) {
               <h2>{yo.accesos.includes('/api/reportes') ? 'Gestión de ventas' : 'Últimas ventas'}</h2>
               <button type="button" className="enlace" onClick={() => ir('ventas')}>Ver todo ›</button>
             </div>
-            <TablaVentas ventas={datos.ventas.slice(0, 5)} />
+            <TablaVentas ventas={datos.ventas.slice(0, 5)} caja={datos.caja} guardar={guardar} />
           </section>
         )}
 

@@ -5,7 +5,7 @@ Módulos entregados:
 
 - **Carga de productos / Caso de Uso 3 "Registrar Ingreso de Mercadería"**, con lectura de código de barras desde el celular.
 - **Panel de administración** (web): usuarios y roles, permisos por rol, cajas con sus cajeros y horarios, y datos del comercio.
-- **Caja y ventas / Caso de Uso 2 "Realizar Venta"** (web): apertura y cierre de caja con arqueo, crear factura (efectivo, tarjeta y voucher) y gestión de ventas con filtros.
+- **Caja y ventas / Caso de Uso 2 "Realizar Venta"** (web): apertura y cierre de caja con arqueo e informe (diferencia máxima $3000), achiques, vouchers (crear y usar), crear factura (efectivo con vuelto, tarjeta, transferencia y voucher), anulación con nota de crédito y gestión de ventas con filtros.
 - **Recuperar contraseña** (Caso de Uso 1) con un enlace que llega por mail.
 
 ## Usuarios de prueba (email y contraseña)
@@ -48,7 +48,7 @@ jugueteria/
 │   ├── server.js            API REST (login, recuperar contraseña, permisos, productos)
 │   ├── admin.js             rutas del panel de administración
 │   ├── admin.test.js
-│   ├── ventas.js            rutas de caja (apertura, cierre) y ventas (factura, pagos, voucher)
+│   ├── ventas.js            rutas de caja (apertura, cierre, achique, informes) y ventas (factura, pagos, vouchers, anulación)
 │   ├── ventas.test.js
 │   ├── codigo-barras.js     generación de EAN-13 interno
 │   └── codigo-barras.test.js
@@ -57,7 +57,7 @@ jugueteria/
 │       ├── api.js               conexión con la API + sesión + formatos
 │       ├── App.jsx              Iniciar sesión · Recuperar contraseña
 │       ├── Panel.jsx            barra superior + qué gestiones ve cada rol
-│       ├── MiCaja.jsx           caja del usuario: abrir, cerrar (arqueo)
+│       ├── MiCaja.jsx           caja del usuario: abrir, cerrar (arqueo e informe), achique y vouchers
 │       ├── Factura.jsx          Crear factura
 │       ├── Ventas.jsx           ventas con filtros, pago y detalle
 │       ├── Usuarios.jsx         usuarios, roles y caja de cada cajero
@@ -203,6 +203,10 @@ Caja y ventas (roles con "Facturación y caja"; la lista de ventas también con 
 | POST | `/api/caja/cierre` | Cierra la caja y devuelve sistema, declarado y diferencia | cerrarCaja() |
 | GET | `/api/medios-pago` | Efectivo, Tarjeta, Voucher | — |
 | GET | `/api/vouchers/:numero` | Valida un voucher y devuelve su monto | Aplicar Voucher |
+| POST | `/api/caja/retiros` | Achique: retira efectivo con motivo | Manejo de efectivo |
+| GET | `/api/caja/informes` | Informes de cierre | Cierre de caja |
+| POST | `/api/vouchers` | Crea un voucher (efectivo o digital) | Voucher |
+| POST | `/api/ventas/:id/anular` | Anula la venta y genera la nota de crédito | Anulación |
 | POST | `/api/ventas` | Emite la factura: detalle, pagos, voucher y baja de stock | CU2 Realizar Venta |
 | GET | `/api/ventas` | Ventas con detalle y pagos (todas, o las de la caja propia) | Gestión de ventas |
 

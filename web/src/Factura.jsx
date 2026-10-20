@@ -9,6 +9,7 @@ export default function Factura({ datos, guardar, avisar, ir }) {
   const [lineas, setLineas] = useState([]) // { producto, cantidad }
   const [busqueda, setBusqueda] = useState('')
   const [medio, setMedio] = useState(null)
+  const [recibido, setRecibido] = useState('') // efectivo que entrega el cliente (para el vuelto)
   const [conVoucher, setConVoucher] = useState(false)
   const [voucher, setVoucher] = useState(null) // { numero_referencia, monto_precargado } ya validado
   const [error, setError] = useState('')
@@ -42,6 +43,9 @@ export default function Factura({ datos, guardar, avisar, ir }) {
   const total = lineas.reduce((t, l) => t + centavos(l.producto.precio) * (l.cantidad || 0), 0) / 100
   const descuento = voucher ? Math.min(voucher.monto_precargado, total) : 0
   const resto = (centavos(total) - centavos(descuento)) / 100
+  // Solo el efectivo da vuelto; tarjeta y transferencia se cobran por el monto exacto
+  const enEfectivo = medios.find((m) => m.id === medio)?.nombre === 'Efectivo' && resto > 0
+  const vuelto = enEfectivo && recibido !== '' ? (centavos(Number(recibido)) - centavos(resto)) / 100 : null
 
   async function aplicarVoucher(e) {
     e.preventDefault()
@@ -58,15 +62,17 @@ export default function Factura({ datos, guardar, avisar, ir }) {
   // Registrar Venta
   async function emitir() {
     if (lineas.some((l) => !Number.isInteger(l.cantidad) || l.cantidad < 1)) return setError('Revisá las cantidades')
-    if (resto > 0 && !medio) return setError('Elegí el medio de pago: efectivo o tarjeta')
+    if (resto > 0 && !medio) return setError('Elegí el medio de pago: efectivo, tarjeta o transferencia')
+    if (vuelto !== null && vuelto < 0) return setError('El efectivo recibido no alcanza para cubrir el total')
     try {
       const factura = await guardar('POST', '/ventas', {
         items: lineas.map((l) => ({ producto_id: l.producto.id, cantidad: l.cantidad })),
         medio_pago_id: resto > 0 ? medio : null,
         voucher: voucher?.numero_referencia,
+        efectivo_recibido: enEfectivo && recibido !== '' ? Number(recibido) : undefined,
       })
       ir('inicio')
-      avisar(`Factura N° ${factura.id} emitida · Total ${pesos(factura.total)}`)
+      avisar(`Factura N° ${factura.id} emitida · Total ${pesos(factura.total)}${factura.vuelto != null ? ` · Vuelto ${pesos(factura.vuelto)}` : ''}`)
     } catch (err) {
       setError(err.message)
     }
@@ -146,7 +152,7 @@ export default function Factura({ datos, guardar, avisar, ir }) {
         <div className="pago">
           <span>Medio de pago:</span>
           {medios.filter((m) => m.nombre !== 'Voucher').map((m) => (
-            <button key={m.id} type="button" className="lila" aria-pressed={medio === m.id} onClick={() => setMedio(m.id)}>{m.nombre}</button>
+            <button key={m.id} type="button" className="lila" aria-pressed={medio === m.id} onClick={() => { setMedio(m.id); setRecibido('') }}>{m.nombre}</button>
           ))}
           <button type="button" className="lila" aria-pressed={conVoucher} onClick={() => { setConVoucher(!conVoucher); setVoucher(null) }}>Voucher</button>
         </div>
@@ -157,6 +163,14 @@ export default function Factura({ datos, guardar, avisar, ir }) {
           </form>
         )}
         {voucher && voucher.monto_precargado > total && <p className="nota">El voucher es de {pesos(voucher.monto_precargado)}: se usa una sola vez y el saldo que sobra se pierde.</p>}
+
+        {enEfectivo && (
+          <label className="pago">
+            Efectivo recibido ($):
+            <input type="number" min="0" step="0.01" inputMode="decimal" value={recibido} onChange={(e) => setRecibido(e.target.value)} />
+            {vuelto !== null && vuelto >= 0 && <strong>Vuelto: {pesos(vuelto)}</strong>}
+          </label>
+        )}
 
         {error && <p className="mensaje" role="alert">{error}</p>}
         <div className="acciones">
