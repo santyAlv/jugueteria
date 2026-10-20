@@ -1,7 +1,7 @@
 -- Sistema de Gestión para Juguetería
 -- Módulos: Carga de productos / Ingreso de mercadería, Panel de administración, Caja y Ventas
 -- Tablas tomadas del Diagrama de Clases y del DER del informe.
--- Falta retiros_efectivo: se agrega con su módulo.
+-- retiros_efectivo (ACHIQUE) y notas_credito completan el módulo de caja.
 
 DROP DATABASE IF EXISTS jugueteria;
 CREATE DATABASE jugueteria CHARACTER SET utf8mb4 COLLATE utf8mb4_spanish_ci;
@@ -105,6 +105,11 @@ CREATE TABLE caja_movimientos (
   monto_declarado DECIMAL(10,2) NOT NULL,
   -- calcularDiferencia(): positivo = sobrante, negativo = faltante
   diferencia      DECIMAL(10,2) AS (monto_declarado - monto_sistema) STORED,
+  -- Informe del cierre (NULL en la apertura): lo vendido desde la apertura, por forma de pago
+  total_efectivo  DECIMAL(10,2) NULL,
+  total_digital   DECIMAL(10,2) NULL,
+  total_voucher   DECIMAL(10,2) NULL,
+  total_retiros   DECIMAL(10,2) NULL,
   -- Con microsegundos: el arqueo separa las ventas de antes y de después de cada apertura
   fecha_hora      DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   FOREIGN KEY (caja_id)    REFERENCES cajas(id),
@@ -147,6 +152,14 @@ CREATE TABLE vouchers (
   numero_referencia VARCHAR(50) NOT NULL UNIQUE,
   monto_precargado  DECIMAL(10,2) NOT NULL,
   estado            VARCHAR(20) NOT NULL DEFAULT 'DISPONIBLE',
+  -- Cómo y dónde se cargó (NULL en los de prueba): si fue en efectivo, entra a la caja
+  medio_pago_id     INT NULL,
+  caja_id           INT NULL,
+  usuario_id        INT NULL,
+  fecha_hora        DATETIME(6) NULL,
+  FOREIGN KEY (medio_pago_id) REFERENCES medios_pago(id),
+  FOREIGN KEY (caja_id)       REFERENCES cajas(id),
+  FOREIGN KEY (usuario_id)    REFERENCES usuarios(id),
   CHECK (estado IN ('DISPONIBLE', 'USADO')),
   CHECK (monto_precargado > 0)
 );
@@ -161,6 +174,31 @@ CREATE TABLE pagos (
   FOREIGN KEY (medio_pago_id) REFERENCES medios_pago(id),
   FOREIGN KEY (voucher_id)    REFERENCES vouchers(id),
   CHECK (monto > 0)
+);
+
+-- ACHIQUE: dinero que sale de la caja por un motivo que no es una venta
+CREATE TABLE retiros_efectivo (
+  id         INT AUTO_INCREMENT PRIMARY KEY,
+  caja_id    INT NOT NULL,
+  usuario_id INT NOT NULL,
+  fecha_hora DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  monto      DECIMAL(10,2) NOT NULL,
+  motivo     VARCHAR(255) NOT NULL,
+  FOREIGN KEY (caja_id)    REFERENCES cajas(id),
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
+  CHECK (monto > 0)
+);
+
+-- Anular una factura no la borra: genera una nota de crédito con el motivo
+CREATE TABLE notas_credito (
+  id         INT AUTO_INCREMENT PRIMARY KEY,
+  factura_id INT NOT NULL UNIQUE,
+  usuario_id INT NOT NULL,
+  fecha_hora DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  monto      DECIMAL(10,2) NOT NULL,
+  motivo     VARCHAR(255) NOT NULL,
+  FOREIGN KEY (factura_id) REFERENCES facturas(id),
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
 );
 
 -- ---------------------------------------------------------------------------
@@ -193,7 +231,8 @@ INSERT INTO acceso_roles (nombre_opcion, ruta_script, rol_id, visible) VALUES
   ('Reporte de ventas',       '/api/reportes',  3, 0),
   ('Reporte de ventas',       '/api/reportes',  4, 0);
 
-INSERT INTO medios_pago (nombre) VALUES ('Efectivo'), ('Tarjeta'), ('Voucher');
+-- Pago digital = Tarjeta o Transferencia (no generan vuelto ni tocan el efectivo físico)
+INSERT INTO medios_pago (nombre) VALUES ('Efectivo'), ('Tarjeta'), ('Voucher'), ('Transferencia');
 
 -- Vouchers de regalo para probar el pago con voucher
 INSERT INTO vouchers (numero_referencia, monto_precargado) VALUES

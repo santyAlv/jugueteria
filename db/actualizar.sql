@@ -131,7 +131,7 @@ INSERT IGNORE INTO acceso_roles (nombre_opcion, ruta_script, rol_id, visible) VA
   ('Reporte de ventas',       '/api/reportes',  3, 0),
   ('Reporte de ventas',       '/api/reportes',  4, 0);
 
-INSERT IGNORE INTO medios_pago (nombre) VALUES ('Efectivo'), ('Tarjeta'), ('Voucher');
+INSERT IGNORE INTO medios_pago (nombre) VALUES ('Efectivo'), ('Tarjeta'), ('Voucher'), ('Transferencia');
 
 INSERT IGNORE INTO vouchers (numero_referencia, monto_precargado) VALUES
   ('REGALO-5000', 5000.00),
@@ -148,3 +148,47 @@ VALUES ('gerente', 'gerente@jugueteria.com', '$2b$10$aPcxP8MTKsYa2uRhiDhGPOVp4mT
 -- El cajero de prueba queda en la caja 1, como en schema.sql
 UPDATE usuarios SET caja_id = (SELECT id FROM cajas WHERE sucursal_id = 1 AND numero_caja = '1')
  WHERE email = 'cajero@jugueteria.com' AND caja_id IS NULL;
+
+-- ---------------------------------------------------------------------------
+-- Módulo de caja completo: retiros (achique), notas de crédito, vouchers cargables e informe de cierre
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS retiros_efectivo (
+  id         INT AUTO_INCREMENT PRIMARY KEY,
+  caja_id    INT NOT NULL,
+  usuario_id INT NOT NULL,
+  fecha_hora DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  monto      DECIMAL(10,2) NOT NULL,
+  motivo     VARCHAR(255) NOT NULL,
+  FOREIGN KEY (caja_id)    REFERENCES cajas(id),
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
+  CHECK (monto > 0)
+);
+
+CREATE TABLE IF NOT EXISTS notas_credito (
+  id         INT AUTO_INCREMENT PRIMARY KEY,
+  factura_id INT NOT NULL UNIQUE,
+  usuario_id INT NOT NULL,
+  fecha_hora DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  monto      DECIMAL(10,2) NOT NULL,
+  motivo     VARCHAR(255) NOT NULL,
+  FOREIGN KEY (factura_id) REFERENCES facturas(id),
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+);
+
+SET @falta = (SELECT COUNT(*) = 0 FROM information_schema.columns
+               WHERE table_schema = DATABASE() AND table_name = 'vouchers' AND column_name = 'medio_pago_id');
+SET @sql = IF(@falta,
+  'ALTER TABLE vouchers ADD COLUMN medio_pago_id INT NULL, ADD COLUMN caja_id INT NULL, ADD COLUMN usuario_id INT NULL, ADD COLUMN fecha_hora DATETIME(6) NULL, ADD FOREIGN KEY (medio_pago_id) REFERENCES medios_pago(id), ADD FOREIGN KEY (caja_id) REFERENCES cajas(id), ADD FOREIGN KEY (usuario_id) REFERENCES usuarios(id)',
+  'DO 0');
+PREPARE paso FROM @sql;
+EXECUTE paso;
+DEALLOCATE PREPARE paso;
+
+SET @falta = (SELECT COUNT(*) = 0 FROM information_schema.columns
+               WHERE table_schema = DATABASE() AND table_name = 'caja_movimientos' AND column_name = 'total_efectivo');
+SET @sql = IF(@falta,
+  'ALTER TABLE caja_movimientos ADD COLUMN total_efectivo DECIMAL(10,2) NULL, ADD COLUMN total_digital DECIMAL(10,2) NULL, ADD COLUMN total_voucher DECIMAL(10,2) NULL, ADD COLUMN total_retiros DECIMAL(10,2) NULL',
+  'DO 0');
+PREPARE paso FROM @sql;
+EXECUTE paso;
+DEALLOCATE PREPARE paso;
