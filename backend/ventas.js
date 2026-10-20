@@ -340,6 +340,8 @@ export function rutasVentas({ db, enTransaccion, autenticado, tieneAcceso }) {
     const [rows] = await db.query(
       `SELECT f.id, f.fecha_hora, f.total, f.estado, f.caja_id, c.numero_caja, c.sucursal_id, us.nombre_usuario,
               (SELECT n.motivo FROM notas_credito n WHERE n.factura_id = f.id) AS motivo_anulacion,
+              (f.estado = 'EMITIDA' AND c.estado = 'ABIERTA'
+                AND f.fecha_hora >= (SELECT MAX(a.fecha_hora) FROM caja_movimientos a WHERE a.caja_id = f.caja_id AND a.tipo = 'APERTURA')) AS anulable,
               (SELECT JSON_ARRAYAGG(JSON_OBJECT('producto', p.nombre, 'codigo_barras', p.codigo_barras, 'cantidad', d.cantidad,
                                                 'precio_unitario', d.precio_unitario, 'subtotal', d.subtotal))
                  FROM detalle_factura d JOIN productos p ON p.id = d.producto_id WHERE d.factura_id = f.id) AS detalle,

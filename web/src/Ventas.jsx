@@ -37,7 +37,7 @@ export function TablaVentas({ ventas, caja, guardar }) {
                 </details>
               </td>
               <td>
-                {guardar && caja?.estado === 'ABIERTA' && v.caja_id === caja.id && v.estado === 'EMITIDA' && (
+                {guardar && v.caja_id === caja?.id && v.anulable === 1 && (
                   <button type="button" className="lila chico" onClick={() => setAnulando(v)}>Anular</button>
                 )}
               </td>
