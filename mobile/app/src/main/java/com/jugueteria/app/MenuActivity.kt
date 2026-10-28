@@ -32,6 +32,10 @@ class MenuActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.btnEscanear).setOnClickListener {
             escaner.launch(Intent(this, EscanerActivity::class.java))
         }
+        // Cajero: cada código escaneado se carga en la factura abierta en la PC
+        findViewById<TextView>(R.id.btnEscanearPC).setOnClickListener {
+            startActivity(Intent(this, EscanerActivity::class.java).putExtra(EscanerActivity.MODO_PC, true))
+        }
         findViewById<TextView>(R.id.btnProductos).setOnClickListener {
             startActivity(Intent(this, ProductosActivity::class.java))
         }

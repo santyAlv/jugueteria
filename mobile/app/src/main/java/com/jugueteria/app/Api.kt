@@ -104,6 +104,9 @@ object Api {
         if (e.estado == 404) null else throw e
     }
 
+    /** Manda el código escaneado a la factura abierta en la PC. Devuelve el producto (404 si el código no existe). */
+    fun enviarAlPC(codigo: String) = JSONObject(pedir("POST", "/escaneos", JSONObject().put("codigo", codigo)))
+
     fun crearProducto(datos: JSONObject) = JSONObject(pedir("POST", "/productos", datos))
 
     fun modificarProducto(id: Int, datos: JSONObject) = JSONObject(pedir("PUT", "/productos/$id", datos))

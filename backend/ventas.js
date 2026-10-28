@@ -71,6 +71,9 @@ export const MONTO_CAJA = `(
    WHERE a.caja_id = c.id AND a.tipo = 'APERTURA'
    ORDER BY a.id DESC LIMIT 1)`
 
+// Hora límite de ventas que fija el gerente (NULL = sin límite): pasada esa hora la caja no factura
+const LIMITE = `(hora_limite_ventas IS NOT NULL AND CURTIME() > hora_limite_ventas) AS vencida, TIME_FORMAT(hora_limite_ventas, '%H:%i') AS limite`
+
 // Informe de un cierre: fecha, número de caja, totales por forma de pago y el arqueo
 const INFORME = `SELECT m.id, m.fecha_hora, c.numero_caja, m.total_efectivo, m.total_digital, m.total_voucher, m.total_retiros,
                         m.monto_sistema, m.monto_declarado, m.diferencia
@@ -98,6 +101,10 @@ async function totalesDe(con, cajaId) {
   return { efectivo: de('efectivo'), digital: de('digital'), voucher: de('voucher'), retiros: Number(r.retiros) }
 }
 
+// Escaneos del celular que la factura de la PC todavía no recogió: usuario_id → [{ hora, producto }]
+const escaneos = new Map()
+const VIGENCIA_ESCANEO = 5 * 60 * 1000
+
 // ---------------------------------------------------------------------------
 // Rutas (se montan en /api)
 // ---------------------------------------------------------------------------
@@ -110,6 +117,7 @@ export function rutasVentas({ db, enTransaccion, autenticado, tieneAcceso }) {
     const [[c]] = await con.query(
       `SELECT c.id, c.numero_caja, c.sucursal_id, c.estado,
               TIME_FORMAT(c.hora_apertura, '%H:%i') AS hora_apertura, TIME_FORMAT(c.hora_cierre, '%H:%i') AS hora_cierre,
+              TIME_FORMAT(c.hora_limite_ventas, '%H:%i') AS hora_limite_ventas,
               IF(c.estado = 'ABIERTA', ${MONTO_CAJA}, NULL) AS monto
          FROM cajas c WHERE c.id = ?`,
       [usuario.caja_id]
@@ -206,6 +214,31 @@ export function rutasVentas({ db, enTransaccion, autenticado, tieneAcceso }) {
     res.json(rows)
   })
 
+  // --- Escáner del celular → factura de la PC ---
+  // El celular manda el código y la factura abierta en la PC lo recoge (la lee y se vacía).
+  // Cola en memoria por usuario: se pierde si se reinicia la API, que es lo esperado para algo de segundos.
+  // ponytail: sin base ni websockets; la web consulta cada segundo.
+  r.post('/escaneos', vende, async (req, res) => {
+    const codigo = typeof req.body?.codigo === 'string' ? req.body.codigo.trim() : ''
+    if (!codigo || codigo.length > 50) return res.status(400).json({ error: 'Código inválido' })
+    const u = req.usuario
+    const [[p]] = await db.query(
+      'SELECT id, nombre, codigo_barras, precio, stock FROM productos WHERE codigo_barras = ? AND sucursal_id = ?',
+      [codigo, u.sucursal_id]
+    )
+    if (!p) throw fallo(404, `Código ${codigo} no registrado`)
+    const cola = (escaneos.get(u.id) ?? []).filter((e) => Date.now() - e.hora < VIGENCIA_ESCANEO)
+    cola.push({ hora: Date.now(), producto: p })
+    escaneos.set(u.id, cola.slice(-50))
+    res.status(201).json(p)
+  })
+
+  r.get('/escaneos', vende, (req, res) => {
+    const cola = (escaneos.get(req.usuario.id) ?? []).filter((e) => Date.now() - e.hora < VIGENCIA_ESCANEO)
+    escaneos.delete(req.usuario.id)
+    res.json(cola.map((e) => e.producto))
+  })
+
   // --- Medios de pago y vouchers ---
   r.get('/medios-pago', vende, async (req, res) => {
     const [rows] = await db.query('SELECT id, nombre FROM medios_pago ORDER BY id')
@@ -228,8 +261,9 @@ export function rutasVentas({ db, enTransaccion, autenticado, tieneAcceso }) {
     if (!esId(medio_pago_id)) return res.status(400).json({ error: 'Elegí cómo se paga el voucher: efectivo o digital' })
     const u = req.usuario
     const voucher = await enTransaccion(async (con) => {
-      const [[caja]] = await con.query("SELECT id FROM cajas WHERE id = ? AND estado = 'ABIERTA' FOR UPDATE", [u.caja_id])
+      const [[caja]] = await con.query(`SELECT id, ${LIMITE} FROM cajas WHERE id = ? AND estado = 'ABIERTA' FOR UPDATE`, [u.caja_id])
       if (!caja) throw fallo(409, 'Tu caja está cerrada: abrila para vender vouchers')
+      if (caja.vencida) throw fallo(409, `Pasó la hora límite de ventas (${caja.limite}): no se pueden vender vouchers`)
       const [[medio]] = await con.query("SELECT id FROM medios_pago WHERE id = ? AND nombre <> 'Voucher'", [medio_pago_id])
       if (!medio) throw fallo(400, 'Un voucher se paga en efectivo o digital, no con otro voucher')
       // Número de referencia legible y único; el id lo asigna la base
@@ -278,8 +312,9 @@ export function rutasVentas({ db, enTransaccion, autenticado, tieneAcceso }) {
     if (v.error) return res.status(400).json(v)
     const u = req.usuario
     const factura = await enTransaccion(async (con) => {
-      const [[caja]] = await con.query("SELECT id FROM cajas WHERE id = ? AND estado = 'ABIERTA' FOR UPDATE", [u.caja_id])
+      const [[caja]] = await con.query(`SELECT id, ${LIMITE} FROM cajas WHERE id = ? AND estado = 'ABIERTA' FOR UPDATE`, [u.caja_id])
       if (!caja) throw fallo(409, u.caja_id ? 'Tu caja está cerrada: abrila para poder facturar' : 'No tenés una caja asignada')
+      if (caja.vencida) throw fallo(409, `Pasó la hora límite de ventas (${caja.limite}): no se puede facturar`)
 
       // Buscar Producto + Agregar Producto + Calcular Stock (movimientos_stock.registrarEgreso)
       const lineas = []

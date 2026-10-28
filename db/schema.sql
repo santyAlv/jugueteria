@@ -40,6 +40,8 @@ CREATE TABLE cajas (
   -- Horario de atención que configura el administrador (no está en el Diagrama de Clases)
   hora_apertura TIME NOT NULL,
   hora_cierre   TIME NOT NULL,
+  -- Hora límite de ventas que fija el gerente: pasada esa hora la caja no factura (NULL = sin límite)
+  hora_limite_ventas TIME NULL,
   FOREIGN KEY (sucursal_id) REFERENCES sucursales(id),
   UNIQUE (sucursal_id, numero_caja),
   CHECK (estado IN ('ABIERTA', 'CERRADA')),
@@ -229,7 +231,11 @@ INSERT INTO acceso_roles (nombre_opcion, ruta_script, rol_id, visible) VALUES
   ('Reporte de ventas',       '/api/reportes',  1, 1),
   ('Reporte de ventas',       '/api/reportes',  2, 1),
   ('Reporte de ventas',       '/api/reportes',  3, 0),
-  ('Reporte de ventas',       '/api/reportes',  4, 0);
+  ('Reporte de ventas',       '/api/reportes',  4, 0),
+  ('Gestión del gerente',     '/api/gerente',   1, 1),
+  ('Gestión del gerente',     '/api/gerente',   2, 1),
+  ('Gestión del gerente',     '/api/gerente',   3, 0),
+  ('Gestión del gerente',     '/api/gerente',   4, 0);
 
 -- Pago digital = Tarjeta o Transferencia (no generan vuelto ni tocan el efectivo físico)
 INSERT INTO medios_pago (nombre) VALUES ('Efectivo'), ('Tarjeta'), ('Voucher'), ('Transferencia');
