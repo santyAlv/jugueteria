@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api, fecha, hora, pesos } from './api.js'
 
 const centavos = (v) => Math.round(v * 100)
@@ -13,7 +13,43 @@ export default function Factura({ datos, guardar, avisar, ir }) {
   const [conVoucher, setConVoucher] = useState(false)
   const [voucher, setVoucher] = useState(null) // { numero_referencia, monto_precargado } ya validado
   const [error, setError] = useState('')
-  const [ahora] = useState(new Date())
+  const [ahora, setAhora] = useState(new Date())
+  const [ultima, setUltima] = useState('') // resumen de la última factura emitida
+  const buscador = useRef()
+  const [celular, setCelular] = useState('') // último producto escaneado con el celular
+  const lineasActuales = useRef(lineas)
+  lineasActuales.current = lineas
+
+  // Escáner del celular: cada segundo se recogen los códigos que mandó la app y se suman a la factura
+  const abierta = caja?.estado === 'ABIERTA'
+  useEffect(() => {
+    if (!abierta) return
+    const reloj = setInterval(async () => {
+      let nuevos
+      try {
+        nuevos = await api('GET', '/escaneos')
+      } catch {
+        return
+      }
+      if (nuevos.length === 0) return
+      let ls = lineasActuales.current
+      let falla = ''
+      for (const p of nuevos) {
+        const enFactura = ls.find((l) => l.producto.id === p.id)?.cantidad ?? 0
+        if (enFactura >= p.stock) {
+          falla = `No hay más stock de ${p.nombre} (quedan ${p.stock})`
+          continue
+        }
+        ls = enFactura ? ls.map((l) => (l.producto.id === p.id ? { ...l, cantidad: l.cantidad + 1 } : l)) : [...ls, { producto: p, cantidad: 1 }]
+      }
+      lineasActuales.current = ls
+      setLineas(ls)
+      setError(falla)
+      setCelular(nuevos.at(-1).nombre)
+      setUltima('')
+    }, 1000)
+    return () => clearInterval(reloj)
+  }, [abierta])
 
   if (caja?.estado !== 'ABIERTA') {
     return (
@@ -71,8 +107,19 @@ export default function Factura({ datos, guardar, avisar, ir }) {
         voucher: voucher?.numero_referencia,
         efectivo_recibido: enEfectivo && recibido !== '' ? Number(recibido) : undefined,
       })
-      ir('inicio')
-      avisar(`Factura N° ${factura.id} emitida · Total ${pesos(factura.total)}${factura.vuelto != null ? ` · Vuelto ${pesos(factura.vuelto)}` : ''}`)
+      // Se queda en la factura, vacía y lista para la próxima venta
+      const resumen = `Factura N° ${factura.id} emitida · Total ${pesos(factura.total)}${factura.vuelto != null ? ` · Vuelto ${pesos(factura.vuelto)}` : ''}`
+      setLineas([])
+      setMedio(null)
+      setRecibido('')
+      setConVoucher(false)
+      setVoucher(null)
+      setError('')
+      setUltima(resumen)
+      setCelular('')
+      setAhora(new Date())
+      avisar(resumen)
+      buscador.current?.focus()
     } catch (err) {
       setError(err.message)
     }
@@ -89,6 +136,9 @@ export default function Factura({ datos, guardar, avisar, ir }) {
           <p className="derecha">Fecha: {fecha(ahora)}<br />Hora: {hora(ahora)}</p>
         </div>
 
+        {celular && <p className="nota" role="status">📱 Escaneado con el celular: {celular}</p>}
+        {ultima && <p className="nota" role="status">✔ {ultima}. Ya podés cargar la próxima venta.</p>}
+
         <form onSubmit={(e) => { e.preventDefault(); if (encontrados[0]) agregar(encontrados.find((p) => p.codigo_barras === texto) ?? encontrados[0]) }}>
           <input
             type="search"
@@ -96,6 +146,7 @@ export default function Factura({ datos, guardar, avisar, ir }) {
             placeholder="Buscar producto por nombre o código de barras..."
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
+            ref={buscador}
             autoFocus
           />
         </form>
@@ -174,7 +225,9 @@ export default function Factura({ datos, guardar, avisar, ir }) {
 
         {error && <p className="mensaje" role="alert">{error}</p>}
         <div className="acciones">
-          <button type="button" className="lila" onClick={() => (lineas.length === 0 || confirm('¿Cancelar la venta? Se pierde lo cargado.')) && ir('inicio')}>Cancelar venta</button>
+          <button type="button" className="lila" onClick={() => (lineas.length === 0 || confirm('¿Cancelar la venta? Se pierde lo cargado.')) && ir('inicio')}>
+            {lineas.length === 0 ? 'Volver al inicio' : 'Cancelar venta'}
+          </button>
           <button type="button" onClick={emitir} disabled={lineas.length === 0}>Emitir factura</button>
         </div>
       </section>

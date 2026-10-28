@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, fecha, hora, pesos } from './api.js'
 import Dialogo from './Dialogo.jsx'
+import Recortable from './Recortable.jsx'
 
 // Informe de cierre: lo vendido por forma de pago, fecha, número de caja y el arqueo
 function Informe({ i }) {
@@ -80,6 +81,7 @@ export default function MiCaja({ datos, guardar, ir }) {
       </div>
       <p className="nota">
         Horario: {caja.hora_apertura} a {caja.hora_cierre}
+        {caja.hora_limite_ventas && <> · Ventas hasta las {caja.hora_limite_ventas}</>}
         {abierta && <> · Efectivo en caja según el sistema: <strong>{pesos(caja.monto)}</strong></>}
       </p>
       {voucher && (
@@ -91,16 +93,21 @@ export default function MiCaja({ datos, guardar, ir }) {
       {abierta && caja.retiros?.length > 0 && (
         <>
           <h3>Achiques de este turno</h3>
-          <div className="scroll">
-            <table>
-              <thead><tr><th>Fecha</th><th>Monto</th><th>Motivo</th></tr></thead>
-              <tbody>
-                {caja.retiros.map((r) => (
-                  <tr key={r.id}><td>{fecha(r.fecha_hora)} {hora(r.fecha_hora)}</td><td>{pesos(r.monto)}</td><td>{r.motivo}</td></tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Recortable
+            items={caja.retiros}
+            hijo={(retiros) => (
+              <div className="scroll">
+                <table>
+                  <thead><tr><th>Fecha</th><th>Monto</th><th>Motivo</th></tr></thead>
+                  <tbody>
+                    {retiros.map((r) => (
+                      <tr key={r.id}><td>{fecha(r.fecha_hora)} {hora(r.fecha_hora)}</td><td>{pesos(r.monto)}</td><td>{r.motivo}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          />
         </>
       )}
 
@@ -113,7 +120,7 @@ export default function MiCaja({ datos, guardar, ir }) {
       {informes.length > 0 && (
         <details>
           <summary>Informes de cierre anteriores</summary>
-          {informes.map((i) => <Informe key={i.id} i={i} />)}
+          <Recortable items={informes} hijo={(lista) => lista.map((i) => <Informe key={i.id} i={i} />)} />
         </details>
       )}
 

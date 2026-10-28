@@ -39,6 +39,13 @@
             android:layout_height="wrap_content"
             android:text="Escanear Código de Barras" />
 
+        <Button
+            android:id="@+id/btnEscanearPC"
+            style="@style/Boton.Lila"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Escanear para facturar en la PC" />
+
         <TextView style="@style/Etiqueta" android:layout_width="match_parent" android:text="Gestión de productos:" />
         <Button
             android:id="@+id/btnProductos"

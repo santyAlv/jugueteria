@@ -129,7 +129,11 @@ INSERT IGNORE INTO acceso_roles (nombre_opcion, ruta_script, rol_id, visible) VA
   ('Reporte de ventas',       '/api/reportes',  1, 1),
   ('Reporte de ventas',       '/api/reportes',  2, 1),
   ('Reporte de ventas',       '/api/reportes',  3, 0),
-  ('Reporte de ventas',       '/api/reportes',  4, 0);
+  ('Reporte de ventas',       '/api/reportes',  4, 0),
+  ('Gestión del gerente',     '/api/gerente',   1, 1),
+  ('Gestión del gerente',     '/api/gerente',   2, 1),
+  ('Gestión del gerente',     '/api/gerente',   3, 0),
+  ('Gestión del gerente',     '/api/gerente',   4, 0);
 
 INSERT IGNORE INTO medios_pago (nombre) VALUES ('Efectivo'), ('Tarjeta'), ('Voucher'), ('Transferencia');
 
@@ -188,6 +192,18 @@ SET @falta = (SELECT COUNT(*) = 0 FROM information_schema.columns
                WHERE table_schema = DATABASE() AND table_name = 'caja_movimientos' AND column_name = 'total_efectivo');
 SET @sql = IF(@falta,
   'ALTER TABLE caja_movimientos ADD COLUMN total_efectivo DECIMAL(10,2) NULL, ADD COLUMN total_digital DECIMAL(10,2) NULL, ADD COLUMN total_voucher DECIMAL(10,2) NULL, ADD COLUMN total_retiros DECIMAL(10,2) NULL',
+  'DO 0');
+PREPARE paso FROM @sql;
+EXECUTE paso;
+DEALLOCATE PREPARE paso;
+
+-- ---------------------------------------------------------------------------
+-- Módulo del gerente: hora límite de ventas por caja
+-- ---------------------------------------------------------------------------
+SET @falta = (SELECT COUNT(*) = 0 FROM information_schema.columns
+               WHERE table_schema = DATABASE() AND table_name = 'cajas' AND column_name = 'hora_limite_ventas');
+SET @sql = IF(@falta,
+  'ALTER TABLE cajas ADD COLUMN hora_limite_ventas TIME NULL',
   'DO 0');
 PREPARE paso FROM @sql;
 EXECUTE paso;

@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.ImageAnalysis
@@ -22,10 +23,15 @@ import com.google.mlkit.vision.barcode.common.Barcode
  */
 class EscanerActivity : AppCompatActivity() {
 
-    companion object { const val CODIGO = "codigo" }
+    companion object {
+        const val CODIGO = "codigo"
+        const val MODO_PC = "modo_pc"
+    }
 
     private var escaner: BarcodeScanner? = null
     private var leido = false
+    private var ultimoCodigo = ""
+    private var ultimoEnvio = 0L
 
     private val pedirPermiso = registerForActivityResult(ActivityResultContracts.RequestPermission()) { concedido ->
         if (concedido) iniciarCamara() else {
@@ -58,15 +64,31 @@ class EscanerActivity : AppCompatActivity() {
         camara.setImageAnalysisAnalyzer(
             principal,
             MlKitAnalyzer(listOf(scanner), ImageAnalysis.COORDINATE_SYSTEM_VIEW_REFERENCED, principal) { resultado ->
-                val codigo = resultado.getValue(scanner)?.firstOrNull()?.rawValue
-                if (codigo.isNullOrBlank() || leido) return@MlKitAnalyzer
+                val codigo = resultado.getValue(scanner)?.firstOrNull()?.rawValue?.trim()
+                if (codigo.isNullOrBlank()) return@MlKitAnalyzer
+                if (intent.getBooleanExtra(MODO_PC, false)) return@MlKitAnalyzer enviarAlPC(codigo)
+                if (leido) return@MlKitAnalyzer
                 leido = true
-                setResult(RESULT_OK, Intent().putExtra(CODIGO, codigo.trim()))
+                setResult(RESULT_OK, Intent().putExtra(CODIGO, codigo))
                 finish()
             },
         )
         camara.bindToLifecycle(this)
         findViewById<PreviewView>(R.id.vistaCamara).controller = camara
+    }
+
+    // Modo "facturar en la PC": no se cierra, sigue escaneando. Un código cuenta una sola vez mientras siga a la vista;
+    // para sumar otra unidad hay que sacarlo de la imagen (más de 1,5 segundos) y volver a mostrarlo.
+    private fun enviarAlPC(codigo: String) {
+        val ahora = System.currentTimeMillis()
+        val sigueALaVista = codigo == ultimoCodigo && ahora - ultimoEnvio < 1500
+        ultimoEnvio = ahora
+        if (sigueALaVista) return
+        ultimoCodigo = codigo
+        val estado = findViewById<TextView>(R.id.txtEstado)
+        enSegundoPlano({ Api.enviarAlPC(codigo) }) { producto ->
+            estado.text = "✔ ${producto.getString("nombre")} enviado a la PC"
+        }
     }
 
     override fun onDestroy() {

@@ -1,6 +1,6 @@
 // API REST del Sistema de Gestión para Juguetería
 // Módulos: inicio de sesión y permisos, carga de productos (Caso de Uso 3),
-//          panel de administración (admin.js) y caja y ventas (ventas.js).
+//          panel de administración (admin.js), caja y ventas (ventas.js) y módulo del gerente (gerente.js).
 //          El frontend web en React está en ../web
 import { join } from 'node:path'
 import express from 'express'
@@ -11,6 +11,7 @@ import nodemailer from 'nodemailer'
 import { codigoInterno } from './codigo-barras.js'
 import { rutasAdmin } from './admin.js'
 import { rutasVentas } from './ventas.js'
+import { rutasGerente, rutasReportes } from './gerente.js'
 
 const SECRET = process.env.JWT_SECRET || 'cambiar-este-secreto'
 const PORT = Number(process.env.PORT || 3000)
@@ -268,6 +269,12 @@ app.get('/api/productos/:id/movimientos', autenticado, async (req, res) => {
 // Panel de administración
 // ---------------------------------------------------------------------------
 app.use('/api/admin', autenticado, tieneAcceso('/api/admin', 'usar el panel de administración'), rutasAdmin(db))
+
+// ---------------------------------------------------------------------------
+// Módulo del gerente: horarios de caja, hora límite de ventas e informes (gerente.js)
+// ---------------------------------------------------------------------------
+app.use('/api/gerente', autenticado, tieneAcceso('/api/gerente', 'configurar las cajas'), rutasGerente(db))
+app.use('/api/reportes', autenticado, tieneAcceso('/api/reportes', 'ver los informes'), rutasReportes(db))
 
 // ---------------------------------------------------------------------------
 // Caja y ventas (Caso de Uso 2)

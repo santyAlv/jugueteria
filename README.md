@@ -145,7 +145,7 @@ Con la API corriendo, la web queda en `http://localhost:3000` (la sirve el mismo
 
 - **admin**: todo (usuarios, permisos, cajas, datos del comercio, ventas de todas las cajas y, si se asigna una caja, facturar).
 - **cajero**: su caja (abrir, cerrar, crear factura) y las ventas de su caja.
-- **Gerente**: ventas de todas las cajas.
+- **Gerente**: ventas de todas las cajas, consulta de stock, horarios de las cajas (apertura, cierre y hora límite de ventas) y la pantalla **Informes** (ventas de caja, ventas de productos, recaudación del día, ganancia del día y ventas por cajero).
 
 La caja solo se puede abrir dentro de su horario: si la demo es fuera de ese horario, cambiarlo en Gestión de cajas.
 
@@ -209,6 +209,29 @@ Caja y ventas (roles con "Facturación y caja"; la lista de ventas también con 
 | POST | `/api/ventas/:id/anular` | Anula la venta y genera la nota de crédito | Anulación |
 | POST | `/api/ventas` | Emite la factura: detalle, pagos, voucher y baja de stock | CU2 Realizar Venta |
 | GET | `/api/ventas` | Ventas con detalle y pagos (todas, o las de la caja propia) | Gestión de ventas |
+
+Módulo del gerente (roles con "Gestión del gerente" para los horarios y "Reporte de ventas" para los informes; todo de la sucursal del usuario):
+
+| Método | Ruta | Qué hace |
+|---|---|---|
+| GET | `/api/gerente/cajas` | Cajas con apertura, cierre y hora límite de ventas |
+| PUT | `/api/gerente/cajas/:id` | Configura apertura, cierre y hora límite de ventas (vacía = sin límite). Pasada esa hora la caja no factura ni vende vouchers |
+| GET | `/api/reportes/ventas-caja?desde&hasta` | Histórico de ventas de caja, por día y por caja |
+| GET | `/api/reportes/ventas-producto?desde&hasta` | Histórico de venta de productos (unidades e importe) |
+| GET | `/api/reportes/recaudacion?fecha` | Recaudación de un día por medio de pago, con anuladas, vouchers vendidos y retiros |
+| GET | `/api/reportes/ganancia?fecha` | Ganancia del día: venta sin IVA − precio de ingreso, por producto |
+| GET | `/api/reportes/ventas-cajero?desde&hasta` | Informe extra: ventas por cajero |
+
+Sin fechas, los históricos toman los últimos 30 días y los informes de un día toman hoy. El stock se consulta con `GET /api/productos`.
+
+Escáner del celular → factura de la PC (roles con "Facturación y caja"; la cola es por usuario, así que celular y PC usan el mismo usuario):
+
+| Método | Ruta | Qué hace |
+|---|---|---|
+| POST | `/api/escaneos` | El celular manda `{codigo}`; devuelve el producto (404 si el código no existe) y lo deja en cola |
+| GET | `/api/escaneos` | La factura de la PC recoge y vacía la cola (la consulta cada segundo) |
+
+En la app: **Escanear para facturar en la PC**. Cada código leído aparece en la factura abierta en la PC; para sumar otra unidad hay que sacar el código de la cámara y volver a mostrarlo.
 
 ## Probar el escáner sin juguetes
 
