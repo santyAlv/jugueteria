@@ -43,6 +43,9 @@ class EscanerActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_escaner)
+        if (intent.getBooleanExtra(MODO_PC, false) && Api.cajaPC == 0) {
+            findViewById<TextView>(R.id.txtEstado).text = "Leé el QR de la factura en la PC para conectarte a la caja"
+        }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
             iniciarCamara()
         } else {
@@ -86,6 +89,18 @@ class EscanerActivity : AppCompatActivity() {
         if (sigueALaVista) return
         ultimoCodigo = codigo
         val estado = findViewById<TextView>(R.id.txtEstado)
+        // El QR de la factura (jugueteria:caja:<id>) conecta el celular a esa caja
+        val caja = Regex("^jugueteria:caja:(\\d+)$").find(codigo)?.groupValues?.get(1)?.toInt()
+        if (caja != null) {
+            return enSegundoPlano({ Api.conectarCaja(caja) }) { c ->
+                Api.cajaPC = c.getInt("id")
+                estado.text = "✔ Conectado a la caja ${c.getInt("numero_caja")}. Escaneá los productos"
+            }
+        }
+        if (Api.cajaPC == 0) {
+            estado.text = "Primero leé el QR de la factura en la PC"
+            return
+        }
         enSegundoPlano({ Api.enviarAlPC(codigo) }) { producto ->
             estado.text = "✔ ${producto.getString("nombre")} enviado a la PC"
         }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import QRCode from 'qrcode'
 import { api, fecha, hora, pesos } from './api.js'
 
 const centavos = (v) => Math.round(v * 100)
@@ -19,6 +20,12 @@ export default function Factura({ datos, guardar, avisar, ir }) {
   const [celular, setCelular] = useState('') // último producto escaneado con el celular
   const lineasActuales = useRef(lineas)
   lineasActuales.current = lineas
+
+  // QR con el id de la caja: el celular lo lee para conectarse a esta factura
+  const [qr, setQr] = useState('')
+  useEffect(() => {
+    if (caja?.id) QRCode.toDataURL(`jugueteria:caja:${caja.id}`, { margin: 1, width: 180 }).then(setQr)
+  }, [caja?.id])
 
   // Escáner del celular: cada segundo se recogen los códigos que mandó la app y se suman a la factura
   const abierta = caja?.estado === 'ABIERTA'
@@ -136,6 +143,11 @@ export default function Factura({ datos, guardar, avisar, ir }) {
           <p className="derecha">Fecha: {fecha(ahora)}<br />Hora: {hora(ahora)}</p>
         </div>
 
+        <details>
+          <summary>📱 Conectar el celular a esta caja</summary>
+          {qr && <img src={qr} alt={`QR de la caja ${caja.numero_caja}`} width="180" height="180" />}
+          <p className="nota">En la app tocá «Escanear para la PC» y leé este código.</p>
+        </details>
         {celular && <p className="nota" role="status">📱 Escaneado con el celular: {celular}</p>}
         {ultima && <p className="nota" role="status">✔ {ultima}. Ya podés cargar la próxima venta.</p>}
 

@@ -90,7 +90,12 @@ object Api {
             .apply()
     }
 
-    fun cerrarSesion() = prefs.edit().remove("token").remove("nombre").remove("rol").apply()
+    fun cerrarSesion() = prefs.edit().remove("token").remove("nombre").remove("rol").remove("caja_pc").apply()
+
+    /** Caja de la PC a la que está conectado el celular (0 = ninguna): se conecta leyendo el QR de la factura. */
+    var cajaPC: Int
+        get() = prefs.getInt("caja_pc", 0)
+        set(v) = prefs.edit().putInt("caja_pc", v).apply()
 
     // --- Productos ---
     fun listarProductos() = JSONArray(pedir("GET", "/productos"))
@@ -104,8 +109,11 @@ object Api {
         if (e.estado == 404) null else throw e
     }
 
-    /** Manda el código escaneado a la factura abierta en la PC. Devuelve el producto (404 si el código no existe). */
-    fun enviarAlPC(codigo: String) = JSONObject(pedir("POST", "/escaneos", JSONObject().put("codigo", codigo)))
+    /** Valida la caja que trae el QR de la factura (debe estar abierta y ser de la sucursal). Devuelve id y numero_caja. */
+    fun conectarCaja(id: Int) = JSONObject(pedir("POST", "/escaneos/conectar", JSONObject().put("caja", id)))
+
+    /** Manda el código escaneado a la factura abierta en la caja conectada. Devuelve el producto (404 si el código no existe). */
+    fun enviarAlPC(codigo: String) = JSONObject(pedir("POST", "/escaneos", JSONObject().put("codigo", codigo).put("caja", cajaPC)))
 
     fun crearProducto(datos: JSONObject) = JSONObject(pedir("POST", "/productos", datos))
 
