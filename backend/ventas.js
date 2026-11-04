@@ -101,7 +101,7 @@ async function totalesDe(con, cajaId) {
   return { efectivo: de('efectivo'), digital: de('digital'), voucher: de('voucher'), retiros: Number(r.retiros) }
 }
 
-// Escaneos del celular que la factura de la PC todavía no recogió: usuario_id → [{ hora, producto }]
+// Escaneos del celular que la factura de la PC todavía no recogió: caja_id → [{ hora, producto }]
 const escaneos = new Map()
 const VIGENCIA_ESCANEO = 5 * 60 * 1000
 
@@ -215,27 +215,42 @@ export function rutasVentas({ db, enTransaccion, autenticado, tieneAcceso }) {
   })
 
   // --- Escáner del celular → factura de la PC ---
-  // El celular manda el código y la factura abierta en la PC lo recoge (la lee y se vacía).
-  // Cola en memoria por usuario: se pierde si se reinicia la API, que es lo esperado para algo de segundos.
+  // El celular se conecta leyendo el QR de la factura (trae el id de la caja), manda los códigos
+  // y la factura abierta en esa caja los recoge (los lee y la cola se vacía).
+  // Cola en memoria por caja: se pierde si se reinicia la API, que es lo esperado para algo de segundos.
   // ponytail: sin base ni websockets; la web consulta cada segundo.
+  async function cajaAbierta(u, id) {
+    const [[c]] = await db.query('SELECT id, numero_caja, estado FROM cajas WHERE id = ? AND sucursal_id = ?', [id, u.sucursal_id])
+    if (!c) throw fallo(404, 'Esa caja no existe en tu sucursal')
+    if (c.estado !== 'ABIERTA') throw fallo(409, `La caja ${c.numero_caja} está cerrada`)
+    return c
+  }
+
+  r.post('/escaneos/conectar', vende, async (req, res) => {
+    const { id, numero_caja } = await cajaAbierta(req.usuario, req.body?.caja)
+    res.json({ id, numero_caja })
+  })
+
   r.post('/escaneos', vende, async (req, res) => {
     const codigo = typeof req.body?.codigo === 'string' ? req.body.codigo.trim() : ''
     if (!codigo || codigo.length > 50) return res.status(400).json({ error: 'Código inválido' })
     const u = req.usuario
+    const caja = await cajaAbierta(u, req.body?.caja)
     const [[p]] = await db.query(
       'SELECT id, nombre, codigo_barras, precio, stock FROM productos WHERE codigo_barras = ? AND sucursal_id = ?',
       [codigo, u.sucursal_id]
     )
     if (!p) throw fallo(404, `Código ${codigo} no registrado`)
-    const cola = (escaneos.get(u.id) ?? []).filter((e) => Date.now() - e.hora < VIGENCIA_ESCANEO)
+    const cola = (escaneos.get(caja.id) ?? []).filter((e) => Date.now() - e.hora < VIGENCIA_ESCANEO)
     cola.push({ hora: Date.now(), producto: p })
-    escaneos.set(u.id, cola.slice(-50))
+    escaneos.set(caja.id, cola.slice(-50))
     res.status(201).json(p)
   })
 
   r.get('/escaneos', vende, (req, res) => {
-    const cola = (escaneos.get(req.usuario.id) ?? []).filter((e) => Date.now() - e.hora < VIGENCIA_ESCANEO)
-    escaneos.delete(req.usuario.id)
+    const caja = req.usuario.caja_id
+    const cola = (escaneos.get(caja) ?? []).filter((e) => Date.now() - e.hora < VIGENCIA_ESCANEO)
+    escaneos.delete(caja)
     res.json(cola.map((e) => e.producto))
   })
 

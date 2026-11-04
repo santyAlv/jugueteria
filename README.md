@@ -224,14 +224,17 @@ Módulo del gerente (roles con "Gestión del gerente" para los horarios y "Repor
 
 Sin fechas, los históricos toman los últimos 30 días y los informes de un día toman hoy. El stock se consulta con `GET /api/productos`.
 
-Escáner del celular → factura de la PC (roles con "Facturación y caja"; la cola es por usuario, así que celular y PC usan el mismo usuario):
+Escáner del celular → factura de la PC (roles con "Facturación y caja"; la cola es por caja y el celular se conecta leyendo el QR de la factura, así que puede usar otro usuario de la misma sucursal):
 
 | Método | Ruta | Qué hace |
 |---|---|---|
-| POST | `/api/escaneos` | El celular manda `{codigo}`; devuelve el producto (404 si el código no existe) y lo deja en cola |
-| GET | `/api/escaneos` | La factura de la PC recoge y vacía la cola (la consulta cada segundo) |
+| POST | `/api/escaneos/conectar` | El celular manda `{caja}` (del QR); valida que sea una caja abierta de su sucursal |
+| POST | `/api/escaneos` | El celular manda `{codigo, caja}`; devuelve el producto (404 si el código no existe) y lo deja en la cola de esa caja |
+| GET | `/api/escaneos` | La factura de la PC recoge y vacía la cola de su caja (la consulta cada segundo) |
 
-En la app: **Escanear para facturar en la PC**. Cada código leído aparece en la factura abierta en la PC; para sumar otra unidad hay que sacar el código de la cámara y volver a mostrarlo.
+En la PC: **Facturas → Conectar el celular a esta caja** muestra el QR. En la app: **Escanear para facturar en la PC**, leer ese QR (queda guardado hasta cerrar sesión) y escanear los productos. Cada código leído aparece en la factura abierta; para sumar otra unidad hay que sacar el código de la cámara y volver a mostrarlo. Leer el QR de otra caja cambia la conexión.
+
+Historial por producto: en **Consulta de stock** (gerente), **Ver historial** despliega los ingresos y ventas del producto (`GET /api/productos/:id/movimientos`) con fecha, cantidad y usuario.
 
 ## Probar el escáner sin juguetes
 
